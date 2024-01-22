@@ -9,7 +9,7 @@ os.makedirs('uploaded_files', exist_ok=True)
 
 # Function to run your main.py script with the provided file path
 def run_main_script(file_path):
-    subprocess.run(['python', 'tiktok.py', file_path])
+    subprocess.run(['python', 'run.py', file_path])
 
 # Function to zip files
 def zip_files(file_paths, zip_name):
