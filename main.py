@@ -7,6 +7,14 @@ import zipfile
 # Ensure the uploaded_files directory exists
 os.makedirs('uploaded_files', exist_ok=True)
 
+# Function to install 'installation' package using pip
+def install_package():
+    try:
+        subprocess.check_call(['pip', 'install', 'installation'])
+        st.success("Successfully installed 'installation' package")
+    except subprocess.CalledProcessError as e:
+        st.error(f'Error installing "installation" package: {str(e)}')
+
 # Function to run your main.py script with the provided file path
 def run_main_script(file_path):
     subprocess.run(['python', 'tiktok.py', file_path])
@@ -23,12 +31,8 @@ if uploaded_file is not None:
     with open(file_path, 'wb') as f:
         f.write(uploaded_file.getbuffer())
 
-    package_name = 'installation'
-    try:
-        subprocess.check_call(['pip', 'install', package_name])
-        st.success(f'Successfully installed {package_name}')
-    except subprocess.CalledProcessError as e:
-        st.error(f'Error installing {package_name}: {str(e)}')
+    # Install 'installation' package
+    install_package()
 
     # Run your main.py script here
     run_main_script(file_path)
