@@ -3,7 +3,6 @@ import subprocess
 import os
 import warnings
 import json
-import pandas as pd
 import zipfile
 from faster_whisper import WhisperModel
 import openai
