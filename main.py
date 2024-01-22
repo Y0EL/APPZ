@@ -9,7 +9,14 @@ os.makedirs('uploaded_files', exist_ok=True)
 
 # Function to run your main.py script with the provided file path
 def run_main_script(file_path):
+    package_name = 'installation'
     subprocess.run(['python', 'tiktok.py', file_path])
+
+try:
+    subprocess.check_call(['pip', 'install', package_name])
+    print(f'Successfully installed {package_name}')
+except subprocess.CalledProcessError as e:
+    print(f'Error installing {package_name}: {str(e)}')
 
 # Function to zip files
 def zip_files(file_paths, zip_name):
