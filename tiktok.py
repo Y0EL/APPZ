@@ -6,10 +6,9 @@ import json
 import pandas as pd
 import zipfile
 from faster_whisper import WhisperModel
-import openai  # Import OpenAI library
-from langdetect import detect  # Import language detection library
-
-warnings.filterwarnings("ignore", category=UserWarning)
+import openai
+from langdetect import detect
+import streamlit as st
 
 # OpenAI API key setup
 openai.api_key = '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'
@@ -28,10 +27,10 @@ def detect_language(text):
     try:
         return detect(text)
     except:
-        return "unknown"  # Fallback language if detection fails
+        return "unknown"
 
 def translate_text(text, target_lang="id"):
-    prompt = f"Terjemahkan Bahasa ini ke {target_lang}:\n\n{text} \n\n dan lengkapi seluruh kata yang tidak lengkap, buat semuanya menjadi lebih masuk akal"
+    prompt = f"Terjemahkan Bahasa ini ke {target_lang}:\n\n{text} dan lengkapi seluruh kata yang tidak lengkap, buat semuanya menjadi lebih masuk akal"
 
     try:
         response = openai.ChatCompletion.create(
@@ -47,7 +46,7 @@ def translate_text(text, target_lang="id"):
         return f"Translation failed: {str(e)}"
 
 def generate_question(text):
-    question_prompt = f"Buatlah pertanyaan terbaik dan masuk akal yang memicu banyak pertanyaan lainnya berdasarkan teks ini:\n\n{text} \n\n Pastikan kamu memahami konteksnya dan buat banyak pertanyaan dari itu dipisahkan oleh koma"
+    question_prompt = f"Buatlah pertanyaan terbaik dan masuk akal yang memicu banyak pertanyaan lainnya berdasarkan teks ini:\n\n{text}"
 
     try:
         response = openai.ChatCompletion.create(
@@ -58,7 +57,6 @@ def generate_question(text):
             temperature=0.7,
             max_tokens=60
         )
-        # Replace new lines with commas
         return response.choices[0].message.content.strip().replace('\n', ', ')
     except Exception as e:
         return f"Question generation failed: {str(e)}"
@@ -67,13 +65,13 @@ def process_tiktok_links(links_file_path):
     df_data = []
     data_jsonl = []
 
-    with open(links_file_path, 'r') as file, open('text.txt', 'w') as text_file:
+    with open(links_file_path, 'r') as file, st.container():
         urls = file.readlines()
 
         for url in urls:
             url = url.strip()
             if not url.startswith("https://"):
-                print(f"Invalid URL format: {url}")
+                st.warning(f"Invalid URL format: {url}")
                 continue
 
             audio_name = f"tiktok_audio_{url.split('/')[-1]}.mp3"
@@ -82,7 +80,8 @@ def process_tiktok_links(links_file_path):
             if os.path.exists(audio_name):
                 transcription = transcribe_audio(audio_name)
                 translation = translate_text(transcription)
-                text_file.write(translation + '\n\n')
+
+                st.dataframe(pd.DataFrame({'Transcription': [transcription], 'Translation': [translation]}))
 
                 generated_question = generate_question(translation)
                 data = {
@@ -101,15 +100,21 @@ def process_tiktok_links(links_file_path):
             data_jsonl_file.write(json.dumps(item) + "\n")
 
     df = pd.DataFrame(df_data, columns=["Link", "Translated Transcript"])
-    df.to_excel("transcripts.xlsx", index=False)
-
-def zip_files(file_paths, zip_name):
-    with zipfile.ZipFile(zip_name, 'w') as zipf:
-        for file in file_paths:
-            if os.path.exists(file):
-                zipf.write(file)
+    st.dataframe(df)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         links_file_path = sys.argv[1]
         process_tiktok_links(links_file_path)
+
+        # Files to be zipped
+        output_files = ['data.jsonl', 'transcripts.xlsx']
+        zip_name = 'content.zip'
+        zip_files(output_files, zip_name)
+
+        if os.path.exists(zip_name):
+            st.success(f"Zip file '{zip_name}' created successfully. You can download it [here](sandbox:/path/to/{zip_name}).")
+        else:
+            st.error("Zip file creation failed.")
+    else:
+        st.warning("No file path provided.")
