@@ -7,17 +7,24 @@ import zipfile
 # Ensure the uploaded_files directory exists
 os.makedirs('uploaded_files', exist_ok=True)
 
-# Function to install 'installation' package using pip
-def install_package():
-    try:
-        subprocess.check_call(['pip', 'install', 'installation'])
-        st.success("Successfully installed 'installation' package")
-    except subprocess.CalledProcessError as e:
-        st.error(f'Error installing "installation" package: {str(e)}')
+# Function to install packages listed in the 'installation' file
+def install_packages():
+    with open('installation', 'r') as f:
+        packages_to_install = f.read().splitlines()
+    
+    for package in packages_to_install:
+        try:
+            subprocess.check_call(['pip', 'install', package])
+            st.success(f'Successfully installed {package}')
+        except subprocess.CalledProcessError as e:
+            st.error(f'Error installing {package}: {str(e)}')
 
 # Function to run your main.py script with the provided file path
-def run_main_script(file_path):
-    subprocess.run(['python', 'tiktok.py', file_path])
+def run_main_script(script_path, file_path):
+    try:
+        subprocess.run(['python', script_path, file_path], check=True)
+    except subprocess.CalledProcessError as e:
+        st.error(f'Error running {script_path}: {str(e)}')
 
 # Streamlit UI
 st.set_page_config(page_title="Automation", page_icon="🎉")
@@ -31,11 +38,12 @@ if uploaded_file is not None:
     with open(file_path, 'wb') as f:
         f.write(uploaded_file.getbuffer())
 
-    # Install 'installation' package
-    install_package()
+    # Install packages listed in the 'installation' file
+    install_packages()
 
-    # Run your main.py script here
-    run_main_script(file_path)
+    # Run your main.py script here, specifying the correct path to tiktok.py
+    script_path = 'tiktok.py'  # Adjust the path as needed
+    run_main_script(script_path, file_path)
     st.success("Processing complete")
 
     # List of files to be zipped
