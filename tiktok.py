@@ -1,5 +1,13 @@
 import subprocess
+package_name = 'installation'
 
+try:
+    # Use subprocess to run pip install command
+    subprocess.check_call(['pip', 'install', package_name])
+    print(f'Successfully installed {package_name}')
+except subprocess.CalledProcessError as e:
+    print(f'Error installing {package_name}: {str(e)}')
+    
 # OpenAI API key setup
 openai.api_key = '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'
 
