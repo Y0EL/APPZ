@@ -1,14 +1,3 @@
-import sys
-import subprocess
-import os
-import warnings
-import json
-import zipfile
-from faster_whisper import WhisperModel
-import openai
-from langdetect import detect
-import streamlit as st
-
 # OpenAI API key setup
 openai.api_key = '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'
 
