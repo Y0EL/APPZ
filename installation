@@ -1,0 +1,15 @@
+pip install faster-whisper
+pip install yt-dlp
+pip install deepl
+pip install deepl-python
+pip install deepl_pro
+pip install whisper
+pip install pandas
+pip install streamlit
+pip install --upgrade deepl
+pip install openpyxl
+pip install -r requirements.txt
+pip install openai
+pip install langdetect
+pip install openai==0.28
+pip install watchdog
