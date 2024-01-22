@@ -4,14 +4,15 @@ import os
 import warnings
 import json
 import pandas as pd
-from deepl import Translator
+import zipfile
 from faster_whisper import WhisperModel
+import openai  # Import OpenAI library
+from langdetect import detect  # Import language detection library
 
-# Suppress specific warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# Initialize DeepL API client with your API key
-deepl_client = Translator(auth_key="74889b94-08bd-4938-a555-5aed76fb20ae:fx")
+# OpenAI API key setup
+openai.api_key = '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'
 
 def download_audio(url, output_name):
     command = f"yt-dlp -x --audio-format mp3 -o {output_name} {url}"
@@ -23,15 +24,52 @@ def transcribe_audio(audio_path):
     segments, _ = model.transcribe(audio_path)
     return " ".join([segment.text for segment in segments])
 
+def detect_language(text):
+    try:
+        return detect(text)
+    except:
+        return "unknown"  # Fallback language if detection fails
+
+def translate_text(text, target_lang="id"):
+    prompt = f"Terjemahkan Bahasa ini ke {target_lang}:\n\n{text} \n\n dan lengkapi seluruh kata yang tidak lengkap, buat semuanya menjadi lebih masuk akal"
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": f"Translate this to {target_lang}:"},
+                {"role": "user", "content": text}
+            ],
+            temperature=0
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Translation failed: {str(e)}"
+
+def generate_question(text):
+    question_prompt = f"Buatlah pertanyaan terbaik dan masuk akal yang memicu banyak pertanyaan lainnya berdasarkan teks ini:\n\n{text} \n\n Pastikan kamu memahami konteksnya dan buat banyak pertanyaan dari itu dipisahkan oleh koma"
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": question_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=60
+        )
+        # Replace new lines with commas
+        return response.choices[0].message.content.strip().replace('\n', ', ')
+    except Exception as e:
+        return f"Question generation failed: {str(e)}"
+
 def process_tiktok_links(links_file_path):
     df_data = []
+    data_jsonl = []
 
-    with open(links_file_path, 'r') as file:
+    with open(links_file_path, 'r') as file, open('text.txt', 'w') as text_file:
         urls = file.readlines()
 
-    os.remove(links_file_path)  # Delete the uploaded file
-
-    with open('data.jsonl', 'w') as data_jsonl_file, open('text.txt', 'w') as text_file:
         for url in urls:
             url = url.strip()
             if not url.startswith("https://"):
@@ -43,44 +81,35 @@ def process_tiktok_links(links_file_path):
 
             if os.path.exists(audio_name):
                 transcription = transcribe_audio(audio_name)
-                translation = deepl_client.translate_text(transcription, target_lang="ID")
+                translation = translate_text(transcription)
+                text_file.write(translation + '\n\n')
 
-                result_data = {
-                    "text": translation.text,
-                    "detected_source_lang": translation.detected_source_lang
-                }
-
-                best_words = generate_user_questions(translation.text)
-
+                generated_question = generate_question(translation)
                 data = {
                     "messages": [
-                        {"role": "system", "content": "TikTok audio transcription and translation"},
-                        {"role": "user", "content": best_words},
-                        {"role": "assistant", "content": result_data}
+                        {"role": "system", "content": "Sistem, berikan pemahaman mendalam tentang konten pada data ini, analisa transkrip dan kumpulkan data, kemudian jelaskan konsep-konsep kunci yang teridentifikasi, pelajari pola unik yang terdapat pada transkrip yang dapat dioptimalkan, berikan respon terbaik berdasarkan transkrip, pelajari bagaimana menghasilkan respon terbaik untuk konten-konten berikutnya supaya lebih menarik dan dapat diandalkan, berperanlah sebagai Profesional untuk analisa konten yang memiliki potensi viral, selalu berikan rating pada setiap respon dan potensi viral dari konten yang telah direspon berdasarkan transkrip"},
+                        {"role": "user", "content": generated_question},
+                        {"role": "assistant", "content": translation}
                     ]
                 }
-                data_jsonl_file.write(json.dumps(data) + "\n")
-                text_file.write(translation.text + '\n')
-                df_data.append([url, translation.text])
-
+                data_jsonl.append(data)
+                df_data.append([url, translation])
                 os.remove(audio_name)
-            else:
-                print(f"Audio file not found: {audio_name}")
+
+    with open('data.jsonl', 'w') as data_jsonl_file:
+        for item in data_jsonl:
+            data_jsonl_file.write(json.dumps(item) + "\n")
 
     df = pd.DataFrame(df_data, columns=["Link", "Translated Transcript"])
-    df.to_excel("translated_transcripts.xlsx", index=False)
+    df.to_excel("transcripts.xlsx", index=False)
 
-def generate_user_questions(translation):
-    if translation:
-        words = translation.split()
-        sorted_words = sorted(words, key=lambda word: len(word), reverse=True)
-        best_words = sorted_words[:5]
-        return ' '.join(best_words)
-    return ''
+def zip_files(file_paths, zip_name):
+    with zipfile.ZipFile(zip_name, 'w') as zipf:
+        for file in file_paths:
+            if os.path.exists(file):
+                zipf.write(file)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         links_file_path = sys.argv[1]
         process_tiktok_links(links_file_path)
-    else:
-        print("No file path provided.")
